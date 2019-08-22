@@ -27,7 +27,7 @@ const agent = new https.Agent({
 });
 
 const instance = axios.create({
-    baseURL: 'https://sig.desenv.unb.br/',
+    baseURL: URL_DESENV,
 });
 
 
@@ -36,40 +36,62 @@ function somarUmViewState(vs) {
 }
 
 function realizarLogoff(cookie) {
-    let urlLogoff = 'https://sig.desenv.unb.br/sigrh/LogOff'
-    axios.get(urlLogoff, cookie).then(
+    let urlLogoff = 'sigrh/LogOff'
+    instance.get(urlLogoff, cookie).then(
         saida => {
             if(trace){console.log('Logoff realizado')}
         }
     )
 }
 
-function realizarEntrada(viewState, cookie) {
-    let url = 'https://sig.desenv.unb.br/sigrh/frequencia/ponto_eletronico/cadastro_ponto_eletronico.jsf'
+function buscarHorarios($contexto){
+    let arrayHorarios = []
+    let horariosSemana = $contexto('form[name="formHorariosSemana"]').find('span')
+    for (let i = 0; i < horariosSemana.length; i++) {
+        const horario = horariosSemana[i];
+        if(horario && horario.firstChild){
+            arrayHorarios.push(horario.firstChild.data)
+        }
+    }
+    return arrayHorarios
+}
+
+function buscarHorarioDeSaidaProvavel($contexto){
+    let span = $contexto('#idFormDadosEntradaSaida\\:horaSaidaPrevista')
+    if(span && span.length > 0){
+        return span[0].firstChild.data
+    }
+}
+
+function buscarTempoRegistrado($contexto){
+    let tds = $contexto('tfoot>tr>td')
+    if(tds && tds.length > 5){
+        return tds[1].firstChild.data + ' ' + tds[2].firstChild.data + '\n' + tds[3].firstChild.data + ' ' + tds[4].firstChild.data
+    }
+}
+
+function realizarEntrada(viewState, conf) {
+    let url = 'sigrh/frequencia/ponto_eletronico/cadastro_ponto_eletronico.jsf'
     let bodyEntrada = new Object();
     bodyEntrada['idFormDadosEntradaSaida'] = 'idFormDadosEntradaSaida'
     bodyEntrada['idFormDadosEntradaSaida:observacoes'] = ''
     bodyEntrada['idFormDadosEntradaSaida:idBtnRegistrarEntrada'] = 'Registrar Entrada'
     bodyEntrada['javax.faces.ViewState'] = viewState
-    axios.post(url, qs.stringify(bodyEntrada), cookie).then(
+    instance.post(url, qs.stringify(bodyEntrada), conf).then(
         entrada => {
             const $entrada = cheerio.load(entrada.data)
-            let horariosSemana = $entrada('form[name="formHorariosSemana"]').find('span')
-            let arrayHorarios = []
-            for (let i = 0; i < horariosSemana.length; i++) {
-                const horario = horariosSemana[i];
-                if(horario && horario.firstChild){
-                    arrayHorarios.push(horario.firstChild.data)
-                }
-            }
+            let arrayHorarios = buscarHorarios($entrada)
+            let tempoRegistrado = buscarTempoRegistrado($entrada)
             if(trace){console.log('Entrada Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
-            realizarLogoff(cookie)
+            if(trace){console.log(tempoRegistrado)}
+            if(trace){console.log('Horario mínimo de saída: ' + buscarHorarioDeSaidaProvavel($entrada))}
+            realizarLogoff(conf)
         }
     )
 }
 
-function realizarSaida(viewState, cookie) {
-    let url = 'https://sig.desenv.unb.br/sigrh/frequencia/ponto_eletronico/cadastro_ponto_eletronico.jsf'
+function realizarSaida(viewState, conf) {
+    let url = 'sigrh/frequencia/ponto_eletronico/cadastro_ponto_eletronico.jsf'
     let bodySaida = new Object();
     bodySaida['idFormDadosEntradaSaida'] = 'idFormDadosEntradaSaida'
     bodySaida['idFormDadosEntradaSaida:observacoes'] = ''
@@ -77,20 +99,14 @@ function realizarSaida(viewState, cookie) {
     bodySaida['idFormDadosEntradaSaida:idBtnRegistrarSaida'] = 'Registrar Saída'    
     bodySaida['javax.faces.ViewState'] = viewState
     
-    axios.post(url, qs.stringify(bodySaida), cookie).then(
+    instance.post(url, qs.stringify(bodySaida), conf).then(
         saida => {
             const $saida = cheerio.load(saida.data)
-
-            let horariosSemana = $saida('form[name="formHorariosSemana"]').find('span')
-            let arrayHorarios = []
-            for (let i = 0; i < horariosSemana.length; i++) {
-                const horario = horariosSemana[i];
-                if(horario && horario.firstChild){
-                    arrayHorarios.push(horario.firstChild.data)
-                }
-            }
+            let arrayHorarios = buscarHorarios($saida)
+            let tempoRegistrado = buscarTempoRegistrado($saida)
             if(trace){console.log('Saída Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
-            realizarLogoff(cookie)
+            if(trace){console.log(tempoRegistrado)}
+            realizarLogoff(conf)
         }
     )
 }
@@ -129,8 +145,13 @@ function navegarParaPonto(viewState, cookie) {
 pontao()
 
 function pontao() {// get para pegar a página de login do sistem
+    moment.locale('pt-br')
     this.dataHoje = moment().format('DD/MM/YYYY');
+    let dataSaida = '19:39:33'
+    
+    this.dataHoje
 
+    return;
     instance.get('sigrh/login.jsf',{withCredentials: true}).then(
         res => {
             if(trace){console.log('Página de login recebida')}
