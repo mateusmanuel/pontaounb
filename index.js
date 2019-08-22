@@ -2,12 +2,15 @@ const axios = require('axios');
 const https = require('https');
 const cheerio = require('cheerio')
 const qs = require('qs');
+const moment = require('moment');
 
 const URL_PROD = "https://www.sig.unb.br/";
 const URL_DESENV = "https://sig.desenv.unb.br/";
 
 var trace = 1;
 var debug = 0;
+
+let dataHoje
 
 let dadosp = {
     usr: '02090267151',
@@ -51,7 +54,15 @@ function realizarEntrada(viewState, cookie) {
     axios.post(url, qs.stringify(bodyEntrada), cookie).then(
         entrada => {
             const $entrada = cheerio.load(entrada.data)
-            if(trace){console.log('Entrada Realizada')}
+            let horariosSemana = $entrada('form[name="formHorariosSemana"]').find('span')
+            let arrayHorarios = []
+            for (let i = 0; i < horariosSemana.length; i++) {
+                const horario = horariosSemana[i];
+                if(horario && horario.firstChild){
+                    arrayHorarios.push(horario.firstChild.data)
+                }
+            }
+            if(trace){console.log('Entrada Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
             realizarLogoff(cookie)
         }
     )
@@ -69,11 +80,19 @@ function realizarSaida(viewState, cookie) {
     axios.post(url, qs.stringify(bodySaida), cookie).then(
         saida => {
             const $saida = cheerio.load(saida.data)
-            if(trace){console.log('Saída Realizada')}
+
+            let horariosSemana = $saida('form[name="formHorariosSemana"]').find('span')
+            let arrayHorarios = []
+            for (let i = 0; i < horariosSemana.length; i++) {
+                const horario = horariosSemana[i];
+                if(horario && horario.firstChild){
+                    arrayHorarios.push(horario.firstChild.data)
+                }
+            }
+            if(trace){console.log('Saída Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
             realizarLogoff(cookie)
         }
     )
-
 }
 
 
@@ -82,7 +101,6 @@ function navegarParaPonto(viewState, cookie) {
     bodyNavegar['painelAcessoDadosServidor'] = 'painelAcessoDadosServidor'
     bodyNavegar['javax.faces.ViewState'] = viewState
     bodyNavegar['painelAcessoDadosServidor:linkPontoEletronicoAntigo'] = 'painelAcessoDadosServidor:linkPontoEletronicoAntigo'
-
     instance.post('/sigrh/servidor/portal/servidor.jsf', qs.stringify(bodyNavegar), cookie).then(
         paginaPonto => {
             if(debug){console.log(paginaPonto.headers)}
@@ -107,10 +125,12 @@ function navegarParaPonto(viewState, cookie) {
     )
 }
 
+
 pontao()
 
 function pontao() {// get para pegar a página de login do sistem
-    
+    this.dataHoje = moment().format('DD/MM/YYYY');
+
     instance.get('sigrh/login.jsf',{withCredentials: true}).then(
         res => {
             if(trace){console.log('Página de login recebida')}
@@ -128,7 +148,6 @@ function pontao() {// get para pegar a página de login do sistem
             config.withCredentials = 'true'
             config.httpsAgent = agent
                                     
-            
             //Monta o Body do login
             let bodyLogar = new Object();
             bodyLogar.login = dados.usr
