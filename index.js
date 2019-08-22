@@ -59,15 +59,37 @@ function buscarHorarios($contexto){
 function buscarHorarioDeSaidaProvavel($contexto){
     let span = $contexto('#idFormDadosEntradaSaida\\:horaSaidaPrevista')
     if(span && span.length > 0){
-        return span[0].firstChild.data
+        return span[0].firstChild.data.slice(0,5)
     }
 }
 
 function buscarTempoRegistrado($contexto){
     let tds = $contexto('tfoot>tr>td')
     if(tds && tds.length > 5){
-        return tds[1].firstChild.data + ' ' + tds[2].firstChild.data + '\n' + tds[3].firstChild.data + ' ' + tds[4].firstChild.data
+        return tds[2].firstChild.data
     }
+}
+
+function somarTempo(base,soma){
+    let horas = soma.slice(0,2)
+    let minutos = soma.slice(3,5)
+    base.add(horas,'hours')
+    base.add(minutos,'minutes')
+    return base;
+}
+
+function subtrairTempo(base,sub){
+    let horas = sub.slice(0,2)
+    let minutos = sub.slice(3,5)
+    base.subtract(horas,'hours')
+    base.subtract(minutos,'minutes')
+    return base;
+}
+
+function horaMinimaSaida(entrada, registradas, regime){
+    let totalSubtraido = subtrairTempo(moment(regime,'HH:mm'), registradas)
+    let horaEntrada = somarTempo(moment(entrada,'HH:mm'), totalSubtraido.format('HH:mm'))
+    return horaEntrada.format('HH:mm')
 }
 
 function realizarEntrada(viewState, conf) {
@@ -82,9 +104,11 @@ function realizarEntrada(viewState, conf) {
             const $entrada = cheerio.load(entrada.data)
             let arrayHorarios = buscarHorarios($entrada)
             let tempoRegistrado = buscarTempoRegistrado($entrada)
-            if(trace){console.log('Entrada Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
-            if(trace){console.log(tempoRegistrado)}
-            if(trace){console.log('Horario mínimo de saída: ' + buscarHorarioDeSaidaProvavel($entrada))}
+            let horaEntrada = arrayHorarios[arrayHorarios.length-1];
+            let regime = ['06:00','8:45'];
+            if(trace){console.log('Entrada Realizada, horario: ' + horaEntrada)}
+            if(trace){console.log('Horas Registradas: '+ tempoRegistrado)}
+            if(trace){console.log('Horario mínimo de saída: ' + horaMinimaSaida(horaEntrada, tempoRegistrado, regime[1]))}
             realizarLogoff(conf)
         }
     )
@@ -105,12 +129,11 @@ function realizarSaida(viewState, conf) {
             let arrayHorarios = buscarHorarios($saida)
             let tempoRegistrado = buscarTempoRegistrado($saida)
             if(trace){console.log('Saída Realizada, horario: ' + arrayHorarios[arrayHorarios.length-1])}
-            if(trace){console.log(tempoRegistrado)}
+            if(trace){console.log('Horas Registradas: '+ tempoRegistrado)}
             realizarLogoff(conf)
         }
     )
 }
-
 
 function navegarParaPonto(viewState, cookie) {
     let bodyNavegar = new Object();
@@ -141,17 +164,8 @@ function navegarParaPonto(viewState, cookie) {
     )
 }
 
-
 pontao()
-
 function pontao() {// get para pegar a página de login do sistem
-    moment.locale('pt-br')
-    this.dataHoje = moment().format('DD/MM/YYYY');
-    let dataSaida = '19:39:33'
-    
-    this.dataHoje
-
-    return;
     instance.get('sigrh/login.jsf',{withCredentials: true}).then(
         res => {
             if(trace){console.log('Página de login recebida')}
