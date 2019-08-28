@@ -1,11 +1,10 @@
 {
   "name": "testdesenv",
   "version": "1.0.0",
-  "description": "",
+  "description": "a",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "run": "node index.js",
+    "prestart": "npm install",
     "start": "node index.js"
   },
   "author": "",
@@ -14,6 +13,7 @@
     "axios": "^0.19.0",
     "cheerio": "^1.0.0-rc.3",
     "moment": "^2.24.0",
+    "nexe": "^3.3.2",
     "qs": "^6.8.0"
   }
 }
